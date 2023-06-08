@@ -141,6 +141,8 @@ export default {
 
   updated() {
     this.watchFields();
+    //this.setFieldValues();
+    this.removeEventWatchers();
     this.initGroupedDependsOn();
     if (this.currentField.singleRequest) {
         this.initialFieldVisibility();
@@ -177,7 +179,7 @@ export default {
       if (!isEmpty(this.watchedEvents)) {
         forIn(this.watchedEvents, (event, dependsOn) => {
           Nova.$off(
-            this.getFieldAttributeChangeEventName(dependsOn),
+            this.getFieldAttributeChangeEventName(event.dependsOn),
             event
           );
         });
@@ -209,6 +211,7 @@ export default {
 
     onSyncedField() {
       this.initGroupedDependsOn();
+      delete this.watchedFields["_changedField"];
       for (const field of this.currentField.fields) {
         if (this.fieldInstances().hasOwnProperty(field.attribute) && !isNil(this.fieldInstances()[field.attribute])) {
             let instance = this.fieldInstances()[field.attribute];
@@ -232,6 +235,7 @@ export default {
           this.watchedEvents[dependsOn] = (value) => {
             this.watchedFields[dependsOn] = value;
             this.dependentFieldDebouncer(() => {
+              this.watchedFields["_changedField"] = dependsOn;
               this.watchedFields[dependsOn] = value;
               this.syncField();
             });
@@ -246,9 +250,8 @@ export default {
 
     watchFields() {
       for (const field in this.fieldInstances()) {
-        let currField = this.fieldInstances()[field];
         this.$watch(
-          () => currField?.value,
+          () => this.fieldInstances()[field]?.value,
           (value) => {
             this.values[field] = value;
           }
@@ -306,6 +309,7 @@ export default {
       let instances = this.fieldInstances();
       fields.forEach((field) => {
         field.panel = this.panel;
+        field.dependentComponentKey = `dependent_panel.${this.currentField.attribute}.${field.dependentComponentKey}`;
         if (this.isInFlexibleGroup) {
           field.validationKey = `${this.groupKey}__${field.validationKey}`;
           field.uniqueKey = `${this.groupKey}-${field.uniqueKey}`;

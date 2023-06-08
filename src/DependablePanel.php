@@ -19,10 +19,6 @@ use Laravel\Nova\Panel;
 use Laravel\Nova\ResourceTool;
 use Laravel\Nova\ResourceToolElement;
 
-use Formfeed\NovaFlexibleContent\Flexible as FormfeedFlexible;
-use Illuminate\Support\Collection;
-use Whitecube\NovaFlexibleContent\Flexible as WhitecubeFlexible;
-
 class DependablePanel extends Field {
     use SupportsDependentFields;
 
@@ -93,31 +89,13 @@ class DependablePanel extends Field {
             $rules = [];
             foreach ($this->fields as $field) {
                 $field->applyDependsOn($request);
-                $fieldRules = $field->getUpdateRules($request);
-
-                // Parse nested Flexible Attributes for when panel is nested within another Flexible Layout
-                foreach ($fieldRules as $key => $rule) {
-                    if (is_array($rule) && is_a($rule['attribute'] ?? null, FlexibleAttribute::class)) {
-                        if (!(explode(".", $key)[0] === $field->attribute)) {
-                            continue;
-                        }
-                        $rules[$key] = $rule;
-                        unset($fieldRules[$key]);
-                    }
-                }
-
-                if (is_a($fieldRules['attribute'] ?? null, FlexibleAttribute::class)) {
-                    $rules = array_merge($rules, $fieldRules);
-                } else {
-                    $rules = array_merge($rules, [
-                        $field->attribute => [
-                            "attribute" => FlexibleAttribute::make($field->attribute, $request->group),
-                            "rules" => $fieldRules
-                        ]
-                    ]);
-                }
+                $rules = array_merge($rules, [
+                    $field->attribute => [
+                        "attribute" => FlexibleAttribute::make($field->attribute, $request->group),
+                        "rules" => $field->getUpdateRules($request)
+                    ]
+                ]);
             }
-
             return $rules;
         }
         $rules = [$this->attribute => []];
@@ -172,7 +150,10 @@ class DependablePanel extends Field {
             $field->value = null;
         }
         parent::applyDependsOn($request);
+        $fieldDependencies = $this->getDependentsAttributes($request) ?? [];
+
         foreach ($this->fields as $field) {
+            $dependsOnArray = $field->jsonSerialize()["dependsOn"] ?? [];
             $field->applyDependsOn($request);
         }
 
@@ -230,7 +211,7 @@ class DependablePanel extends Field {
 
     public function applyToFields($mixin) {
         $request = app(NovaRequest::class);
-        $attributes = $this->getDependentsAttributes($request) ?? [];
+        $attributes = $this->getDependentsAttributes($request);
         $formData = FormData::onlyFrom($request, $attributes);
         foreach ($this->fields as $field) {
             $mixin($field, $request, $formData);
@@ -240,8 +221,7 @@ class DependablePanel extends Field {
 
     public function fill(NovaRequest $request, $model) {
         $fields = $this->fields
-            ->withoutReadonly($request)
-            ->withoutUnfillable();
+                       ->withoutReadonly($request);
         foreach ($fields as $field) {
             $field->fillInto($request, $model, $field->attribute);
         }
@@ -286,29 +266,10 @@ class DependablePanel extends Field {
         }
     }
 
-    public function hasSubfields(): bool {
-        return true;
-    }
-
-    public function getSubfields(): FieldCollection {
-        return $this->fields;
-    }
-
-    public function afterDependsOnSync(NovaRequest $request) : self {
-        $this->fields->each(function ($field) use ($request) {
-            if ((class_exists(FormfeedFlexible::class) && $field instanceof FormfeedFlexible) || (class_exists(WhitecubeFlexible::class) && $field instanceof WhitecubeFlexible)) {
-                $field->resolve($request->newResource(), $field->attribute);
-                $field->value = ($field->value instanceof Collection && $field->value->count() > 0) ? $field->value : null;
-            }
-        });
-
-        return $this;
-    }
-
     public function jsonSerialize(): array {
         $request = app(NovaRequest::class);
         return array_merge(parent::jsonSerialize(), [
-            'fields' => array_values($this->getFields($request)->jsonSerialize()),
+            'fields' => $this->getFields($request)->jsonSerialize(),
             'singleRequest' => $this->singleRequest,
         ]);
     }
