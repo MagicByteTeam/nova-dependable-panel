@@ -76,7 +76,7 @@ class DependablePanel extends Field {
      * @param  string|null  $attribute
      * @return void
      */
-    public function resolve($resource, $attribute = null) {
+    public function resolve($resource, ?string $attribute = null) : void {
         $this->resource = $resource;
 
         foreach ($this->fields as $field) {
