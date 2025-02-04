@@ -84,7 +84,7 @@ class DependablePanel extends Field {
         }
     }
 
-    public function getUpdateRules(NovaRequest $request) {
+    public function getUpdateRules(NovaRequest $request) : array {
         if ($request instanceof ScopedRequest && class_exists(FlexibleAttribute::class)) {
             $rules = [];
             foreach ($this->fields as $field) {
@@ -105,7 +105,7 @@ class DependablePanel extends Field {
         return $rules;
     }
 
-    public function getCreationRules(NovaRequest $request) {
+    public function getCreationRules(NovaRequest $request) : array {
         if ($request instanceof ScopedRequest && class_exists(FlexibleAttribute::class)) {
             $rules = [];
             foreach ($this->fields as $field) {
