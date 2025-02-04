@@ -176,7 +176,7 @@ class DependablePanel extends Field {
         return $this;
     }
 
-    public function getValidationAttributeNames(NovaRequest $request) {
+    public function getValidationAttributeNames(NovaRequest $request) : array {
         $this->applyDependsOn($request);
         return array_merge(
             [$this->validationKey() => $this->name],
